@@ -1,0 +1,32 @@
+sky:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    host: localhost
+    port: 3306
+    database: sky_take_out
+    username: 填写你的MySQL账号
+    password: 填写你的MySQL密码
+  alioss:
+    endpoint: oss-cn-beijing.aliyuncs.com
+    access-key-id: 填写阿里云OSS AccessKey ID
+    access-key-secret: 填写阿里云OSS AccessKey Secret
+    bucket-name: 你的OSS存储空间名称
+  redis:
+    host: localhost
+    port: 6379
+    password: 填写你的Redis密码，无密码留空
+    database: 1
+  wechat:
+    appid: 你的微信小程序AppID
+    secret: 你的微信小程序AppSecret
+    mchid: 微信支付商户号
+    mchSerialNo: 商户API证书序列号
+    privateKeyFilePath: classpath:cert/apiclient_key.pem
+    apiV3Key: 微信支付APIv3密钥
+    weChatPayCertFilePath: classpath:cert/apiclient_cert.pem
+    notifyUrl: 你的公网支付回调地址
+    refundNotifyUrl: 你的公网退款回调地址
+  shop:
+    address: 项目公网访问地址
+  baidu:
+    ak: 百度地图开放平台AK密钥
