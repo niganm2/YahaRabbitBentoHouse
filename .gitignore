@@ -5,7 +5,7 @@
 *Test.java
 **/test/
 
-sky-server/src/main/resources/application-dev.yml
+backend/sky-server/src/main/resources/application-dev.yml
 
 # uniapp开发源码、缓存、打包临时文件
 project-rjwm-weixin-uniapp-develop-wsy/
