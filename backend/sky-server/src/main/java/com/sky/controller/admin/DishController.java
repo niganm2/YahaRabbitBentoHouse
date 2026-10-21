@@ -11,11 +11,13 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/admin/dish")
@@ -125,11 +127,20 @@ public class DishController {
     }
 
     /**
-     * 清理缓存数据
-     * @param pattern
+     * 清理缓存数据。
+     * 使用 SCAN 渐进式遍历代替 KEYS：KEYS 会一次性扫描全部键并阻塞 Redis 主线程，
+     * 生产环境键数量大时会造成整个实例卡顿，SCAN 分批返回，对服务影响可控。
+     *
+     * @param pattern 缓存键匹配模式
      */
     private void cleanCache(String pattern) {
-        Set keys = redisTemplate.keys(pattern);
-        redisTemplate.delete(keys);
+        List<String> keys = new ArrayList<>();
+        try (Cursor<String> cursor = redisTemplate.scan(
+                ScanOptions.scanOptions().match(pattern).count(1000).build())) {
+            cursor.forEachRemaining(keys::add);
+        }
+        if (!keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 }
