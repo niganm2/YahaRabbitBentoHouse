@@ -81,7 +81,7 @@ public class DishServiceImpl implements DishService {
         //判断菜品是否能够删除--是否存在启售中的菜品？？
         for (Long id : ids) {
             Dish dish = dishMapper.getById(id);
-            if (dish.getStatus() == StatusConstant.ENABLE) {
+            if (StatusConstant.ENABLE.equals(dish.getStatus())) {
                 //存在启售中的菜品，不能删除
                 throw new DeletionNotAllowedException(MessageConstant.DISH_ON_SALE);
             }
@@ -129,6 +129,7 @@ public class DishServiceImpl implements DishService {
      * @param dishDTO
      */
     @Override
+    @Transactional
     public void updateWithFlavor(DishDTO dishDTO) {
         Dish dish = new Dish();
         BeanUtils.copyProperties(dishDTO, dish);
@@ -136,14 +137,12 @@ public class DishServiceImpl implements DishService {
         dishMapper.update(dish);
         //删除原有的口味数据
         dishFlavorMapper.deleteByDishId(dishDTO.getId());
-        //更新插入口味数据
+        //批量插入新的口味数据
         List<DishFlavor> flavors = dishDTO.getFlavors();
         if (flavors != null && flavors.size() > 0) {
             flavors.forEach(dishFlavor -> dishFlavor.setDishId(dishDTO.getId()));
             dishFlavorMapper.insertBatch(flavors);
         }
-        //批量插入口味数据
-        dishFlavorMapper.insertBatch(flavors);
     }
 
     /**

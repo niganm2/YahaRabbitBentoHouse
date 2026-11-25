@@ -47,4 +47,16 @@ public class GlobalExceptionHandler {
             return Result.error(MessageConstant.UNKNOWN_ERROR);
         }
     }
+
+    /**
+     * 捕获未预料的系统异常，避免把堆栈信息直接暴露给前端
+     *
+     * @param ex
+     * @return
+     */
+    @ExceptionHandler
+    public Result exceptionHandler(Exception ex) {
+        log.error("系统异常：", ex);
+        return Result.error(MessageConstant.UNKNOWN_ERROR);
+    }
 }
