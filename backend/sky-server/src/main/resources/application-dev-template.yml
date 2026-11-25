@@ -1,4 +1,8 @@
 sky:
+  jwt:
+    # 必须配置为足够长的随机串，建议通过环境变量注入
+    admin-secret-key: ${SKY_JWT_ADMIN_SECRET}
+    user-secret-key: ${SKY_JWT_USER_SECRET}
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     host: localhost

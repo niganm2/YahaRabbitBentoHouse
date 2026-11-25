@@ -68,7 +68,8 @@ sql/create_table.sql     建表脚本
 
 - `application-dev.yml`、`cert/` 目录均已加入 `.gitignore`，不要把数据库密码、OSS/微信支付密钥、商户私钥提交到仓库。
 - 如果私钥曾经提交过，即使现在删除，它仍存在于 Git 历史中。请立即到微信支付商户平台作废并重新生成证书，必要时使用 `git filter-repo` 清理历史。
-- JWT 密钥目前为示例值（`itcast` / `itheima`），部署到公网前请替换为足够长的随机串。
+- JWT 密钥通过 `SKY_JWT_ADMIN_SECRET` / `SKY_JWT_USER_SECRET` 环境变量注入；`application-dev.yml` 内置了本地随机默认值，生产环境必须用环境变量覆盖。
+- 员工密码使用 BCrypt 加盐存储；历史无盐 MD5 密码会在登录成功后自动升级为 BCrypt，无需手动迁移。
 
 ## 测试
 

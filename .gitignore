@@ -17,3 +17,7 @@ unpackage/
 unpackage/cache/
 .vscode/
 .DS_Store
+
+# Python 测试缓存
+__pycache__/
+*.pyc
