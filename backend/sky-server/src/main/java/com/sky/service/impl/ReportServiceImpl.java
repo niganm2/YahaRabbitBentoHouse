@@ -57,7 +57,7 @@ public class ReportServiceImpl implements ReportService {
         dateList.add(begin);
 
         //循环添加
-        while (!begin.equals(end)) {
+        while (begin.isBefore(end)) {
             //获取日期
             begin = begin.plusDays(1);
             dateList.add(begin);
@@ -101,7 +101,7 @@ public class ReportServiceImpl implements ReportService {
 
         dateList.add(begin);
 
-        while (!begin.equals(end)) {
+        while (begin.isBefore(end)) {
             //获取日期
             begin = begin.plusDays(1);
             dateList.add(begin);
@@ -149,7 +149,7 @@ public class ReportServiceImpl implements ReportService {
 
         dateList.add(begin);
 
-        while (!begin.equals(end)) {
+        while (begin.isBefore(end)) {
             //获取日期
             begin = begin.plusDays(1);
             dateList.add(begin);
@@ -241,9 +241,12 @@ public class ReportServiceImpl implements ReportService {
         BusinessDataVO businessDataVO = workspaceService.getBusinessData(beginTime, endTime);
         //2.通过POI将数据写入到Excel文件中
         InputStream in = this.getClass().getClassLoader().getResourceAsStream("template/运营数据报表模板.xlsx");
-        try {
-            //基于模板创建Excel表格对象
-            XSSFWorkbook excel = new XSSFWorkbook(in);
+        if (in == null) {
+            log.error("运营数据报表模板不存在");
+            return;
+        }
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        try (InputStream template = in; XSSFWorkbook excel = new XSSFWorkbook(template)) {
             //获取表格Sheet1
             XSSFSheet sheet = excel.getSheet("Sheet1");
             //填充数据 -- 时间
@@ -265,35 +268,31 @@ public class ReportServiceImpl implements ReportService {
             //填充数据 -- 平均客单价
             row.getCell(4).setCellValue(businessDataVO.getUnitPrice());
 
-            //填充明细数据
+            //填充明细数据，每一天单独查询，不能复用上面的区间汇总对象
             for (int i = 0; i < 30; i++) {
                 LocalDate date = begin.plusDays(i);
 
                 LocalDateTime dateBegin = LocalDateTime.of(date, LocalTime.MIN);
                 LocalDateTime dateEnd = LocalDateTime.of(date, LocalTime.MAX);
                 //查询某一天的营业数据
-                workspaceService.getBusinessData(dateBegin, dateEnd);
+                BusinessDataVO dailyData = workspaceService.getBusinessData(dateBegin, dateEnd);
 
                 row = sheet.getRow(7 + i); //获取某一行
                 row.getCell(1).setCellValue(date.toString()); //第二个单元格 -- 日期
-                row.getCell(2).setCellValue(businessDataVO.getTurnover()); //第三个单元格 -- 营业额
-                row.getCell(3).setCellValue(businessDataVO.getValidOrderCount()); //第四个单元格 -- 有效订单数
-                row.getCell(4).setCellValue(businessDataVO.getOrderCompletionRate()); //第五个单元格 -- 订单完成率
-                row.getCell(5).setCellValue(businessDataVO.getUnitPrice()); //第六个单元格 -- 平均客单价
-                row.getCell(6).setCellValue(businessDataVO.getNewUsers()); //第七个单元格 -- 新增用户数
+                row.getCell(2).setCellValue(dailyData.getTurnover()); //第三个单元格 -- 营业额
+                row.getCell(3).setCellValue(dailyData.getValidOrderCount()); //第四个单元格 -- 有效订单数
+                row.getCell(4).setCellValue(dailyData.getOrderCompletionRate()); //第五个单元格 -- 订单完成率
+                row.getCell(5).setCellValue(dailyData.getUnitPrice()); //第六个单元格 -- 平均客单价
+                row.getCell(6).setCellValue(dailyData.getNewUsers()); //第七个单元格 -- 新增用户数
             }
 
             //3.通过输出流将Excel文件下载到客户机
-            ServletOutputStream out = response.getOutputStream();
-
-            excel.write(out);
-            out.close();
-            excel.close();
+            try (ServletOutputStream out = response.getOutputStream()) {
+                excel.write(out);
+            }
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("导出运营数据报表失败", e);
         }
-
-
     }
 
     private Integer getOrderCount(LocalDateTime begin, LocalDateTime end, Integer status) {

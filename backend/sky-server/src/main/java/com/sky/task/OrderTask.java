@@ -50,6 +50,7 @@ public class OrderTask {
             for (Orders orders : ordersList) {
                 //更新订单状态为5 订单完成
                 orders.setStatus(Orders.COMPLETED);
+                orderMapper.update(orders);
             }
         }
     }

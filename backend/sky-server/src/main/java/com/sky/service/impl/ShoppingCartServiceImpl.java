@@ -40,36 +40,60 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
 
         List<ShoppingCart> list = shoppingCartMapper.list(shoppingCart);
 
-        //如果存在，则数量加1
+        //如果存在，则数量加1并结束，不能再执行插入
         if (list != null && list.size() > 0) {
             ShoppingCart cart = list.get(0);
             cart.setNumber(cart.getNumber() + 1); //update set number = ？ where id = ?
             shoppingCartMapper.updateNumberById(cart);
-        }else {
-            //如果不存在，则添加到购物车，数量默认为1
-            //判断本次添加的是菜品还是套餐
-            Long dishId = shoppingCartDTO.getDishId();
-            if (dishId != null) {
-                //添加的是菜品
-                Dish dish = dishMapper.getById(dishId);
-                shoppingCart.setName(dish.getName());
-                shoppingCart.setImage(dish.getImage());
-                shoppingCart.setAmount(dish.getPrice());
-                shoppingCart.setNumber(1);
-            }else {
-                //添加的是套餐
-                Long setmealId = shoppingCartDTO.getSetmealId();
-                Setmeal setmeal = setmealMapper.getById(setmealId);
-                shoppingCart.setName(setmeal.getName());
-                shoppingCart.setImage(setmeal.getImage());
-                shoppingCart.setAmount(setmeal.getPrice());
+            return;
+        }
 
-            }
+        //如果不存在，则添加到购物车，数量默认为1
+        //判断本次添加的是菜品还是套餐
+        Long dishId = shoppingCartDTO.getDishId();
+        if (dishId != null) {
+            //添加的是菜品
+            Dish dish = dishMapper.getById(dishId);
+            shoppingCart.setName(dish.getName());
+            shoppingCart.setImage(dish.getImage());
+            shoppingCart.setAmount(dish.getPrice());
+        } else {
+            //添加的是套餐
+            Long setmealId = shoppingCartDTO.getSetmealId();
+            Setmeal setmeal = setmealMapper.getById(setmealId);
+            shoppingCart.setName(setmeal.getName());
+            shoppingCart.setImage(setmeal.getImage());
+            shoppingCart.setAmount(setmeal.getPrice());
         }
         shoppingCart.setNumber(1);
         shoppingCart.setCreateTime(LocalDateTime.now());
         //插入数据
         shoppingCartMapper.insert(shoppingCart);
+    }
+
+    /**
+     * 减少购物车商品数量
+     * @param shoppingCartDTO
+     */
+    @Override
+    public void sub(ShoppingCartDTO shoppingCartDTO) {
+        ShoppingCart shoppingCart = new ShoppingCart();
+        BeanUtils.copyProperties(shoppingCartDTO, shoppingCart);
+        shoppingCart.setUserId(BaseContext.getCurrentId());
+
+        List<ShoppingCart> list = shoppingCartMapper.list(shoppingCart);
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+
+        ShoppingCart cart = list.get(0);
+        cart.setNumber(cart.getNumber() - 1);
+        if (cart.getNumber() <= 0) {
+            //数量减到0，直接移除该条记录
+            shoppingCartMapper.deleteById(cart.getId());
+        } else {
+            shoppingCartMapper.updateNumberById(cart);
+        }
     }
 
     /**
@@ -94,5 +118,6 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     public void cleanShoppingCart() {
         //获取当前用户id
         Long userId = BaseContext.getCurrentId();
+        shoppingCartMapper.deleteByUserId(userId);
     }
 }

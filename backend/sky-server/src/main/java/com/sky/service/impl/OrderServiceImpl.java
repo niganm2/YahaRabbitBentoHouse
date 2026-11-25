@@ -38,7 +38,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 
 @Service
 @Slf4j
@@ -102,6 +101,16 @@ public class OrderServiceImpl implements OrderService {
         orders.setConsignee(addressBook.getConsignee());
         orders.setUserId(userId);
 
+        //服务端按购物车重新计算金额，避免直接信任前端传入的 amount
+        BigDecimal goodsAmount = BigDecimal.ZERO;
+        for (ShoppingCart cart : shoppingCartList) {
+            goodsAmount = goodsAmount.add(cart.getAmount().multiply(BigDecimal.valueOf(cart.getNumber())));
+        }
+        if (ordersSubmitDTO.getPackAmount() != null) {
+            goodsAmount = goodsAmount.add(BigDecimal.valueOf(ordersSubmitDTO.getPackAmount()));
+        }
+        orders.setAmount(goodsAmount);
+
         orderMapper.insert(orders);
         List<OrderDetail> orderDetailList = new ArrayList<>();
         //向订单明细表插入n条数据
@@ -130,15 +139,31 @@ public class OrderServiceImpl implements OrderService {
      * @param ordersPaymentDTO
      * @return
      */
+    @Override
     public OrderPaymentVO payment(OrdersPaymentDTO ordersPaymentDTO) throws Exception {
         // 当前登录用户id
         Long userId = BaseContext.getCurrentId();
         User user = userMapper.getById(userId);
 
-        //调用微信支付接口，生成预支付交易单
+        //根据订单号查询订单，校验订单是否存在、是否属于当前用户、是否已支付
+        Orders ordersDB = orderMapper.getByNumber(ordersPaymentDTO.getOrderNumber());
+        if (ordersDB == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
+        if (!ordersDB.getUserId().equals(userId)) {
+            throw new OrderBusinessException("无权操作该订单");
+        }
+        if (Orders.PAID.equals(ordersDB.getPayStatus())) {
+            throw new OrderBusinessException("该订单已支付");
+        }
+        if (!Orders.PENDING_PAYMENT.equals(ordersDB.getStatus())) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        //调用微信支付接口，生成预支付交易单，支付金额取订单真实金额
         JSONObject jsonObject = weChatPayUtil.pay(
-                ordersPaymentDTO.getOrderNumber(), //商户订单号
-                new BigDecimal(0.01), //支付金额，单位 元
+                ordersDB.getNumber(), //商户订单号
+                ordersDB.getAmount(), //支付金额，单位 元
                 "呀哈兔便当屋订单", //商品描述
                 user.getOpenid() //微信用户的openid
         );
@@ -258,6 +283,11 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
         }
 
+        // 校验订单是否属于当前用户
+        if (!ordersDB.getUserId().equals(BaseContext.getCurrentId())) {
+            throw new OrderBusinessException("无权操作该订单");
+        }
+
         //订单状态 1待付款 2待接单 3已接单 4派送中 5已完成 6已取消
         if (ordersDB.getStatus() > 2) {
             throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
@@ -272,8 +302,8 @@ public class OrderServiceImpl implements OrderService {
             weChatPayUtil.refund(
                     ordersDB.getNumber(), //商户订单号
                     ordersDB.getNumber(), //商户退款单号
-                    new BigDecimal(0.01),//退款金额，单位 元
-                    new BigDecimal(0.01));//原订单金额
+                    ordersDB.getAmount(),//退款金额，单位 元
+                    ordersDB.getAmount());//原订单金额
 
             //支付状态修改为 退款
             orders.setPayStatus(Orders.REFUND);
@@ -420,13 +450,13 @@ public class OrderServiceImpl implements OrderService {
 
         //支付状态
         Integer payStatus = ordersDB.getPayStatus();
-        if (payStatus == Orders.PAID) {
-            //用户已支付，需要退款
+        if (Orders.PAID.equals(payStatus)) {
+            //用户已支付，按订单真实金额退款
             String refund = weChatPayUtil.refund(
                     ordersDB.getNumber(),
                     ordersDB.getNumber(),
-                    new BigDecimal(0.01),
-                    new BigDecimal(0.01));
+                    ordersDB.getAmount(),
+                    ordersDB.getAmount());
             log.info("申请退款：{}", refund);
         }
 
@@ -448,16 +478,19 @@ public class OrderServiceImpl implements OrderService {
     public void cancel(OrdersCancelDTO ordersCancelDTO) throws Exception {
         // 根据id查询订单
         Orders ordersDB = orderMapper.getById(ordersCancelDTO.getId());
+        if (ordersDB == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
 
         //支付状态
         Integer payStatus = ordersDB.getPayStatus();
-        if (payStatus == 1) {
-            //用户已支付，需要退款
+        if (Orders.PAID.equals(payStatus)) {
+            //用户已支付，按订单真实金额退款
             String refund = weChatPayUtil.refund(
                     ordersDB.getNumber(),
                     ordersDB.getNumber(),
-                    new BigDecimal(0.01),
-                    new BigDecimal(0.01));
+                    ordersDB.getAmount(),
+                    ordersDB.getAmount());
             log.info("申请退款：{}", refund);
         }
 

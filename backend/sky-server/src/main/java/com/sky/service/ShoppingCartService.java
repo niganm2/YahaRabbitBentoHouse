@@ -13,6 +13,12 @@ public interface ShoppingCartService {
     void add(ShoppingCartDTO shoppingCartDTO);
 
     /**
+     * 减少购物车商品数量
+     * @param shoppingCartDTO
+     */
+    void sub(ShoppingCartDTO shoppingCartDTO);
+
+    /**
      * 查看购物车
      * @return
      */
